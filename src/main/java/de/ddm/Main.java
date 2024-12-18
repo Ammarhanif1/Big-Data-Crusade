@@ -28,7 +28,7 @@ public class Main {
 		if (config.getRole().equals(SystemConfiguration.MASTER_ROLE)) {
 			if (config.isStartPaused())
 				waitForInput(">>> Press ENTER to start <<<");
-// hello
+// hello hi
 			guardian.tell(new Guardian.StartMessage());
 
 			waitForInput(">>> Press ENTER to exit <<<");
