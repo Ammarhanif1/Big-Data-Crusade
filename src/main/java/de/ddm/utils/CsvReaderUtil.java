@@ -15,6 +15,7 @@ public class CsvReaderUtil {
             while ((nextLine = reader.readNext()) != null) {
                 data.add(nextLine);
             }
+            System.out.println("Read " + data.size() + " rows from " + filePath);
         } catch (Exception e) {
             e.printStackTrace();
         }

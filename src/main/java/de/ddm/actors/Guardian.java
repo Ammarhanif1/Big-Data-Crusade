@@ -62,13 +62,29 @@ public class Guardian extends AbstractBehavior<Guardian.Message> {
 	////////////////////////
 
 	public static final String DEFAULT_NAME = "userGuardian";
+	public static class ValidateRelationshipsMessage implements Message {
+		public final String relation;
+		public final String[] columns;
 
+		public ValidateRelationshipsMessage(String relation, String[] columns) {
+			this.relation = relation;
+			this.columns = columns;
+		}
+	}
 	public static final ServiceKey<Guardian.Message> guardianService = ServiceKey.create(Guardian.Message.class, DEFAULT_NAME + "Service");
 
 	public static Behavior<Message> create() {
 		return Behaviors.receive(Message.class)
 				.onMessage(ProcessCsvMessage.class, Guardian::onProcessCsvMessage)
+				.onMessage(ValidateRelationshipsMessage.class, Guardian::onValidateRelationshipsMessage)
 				.build();
+	}
+
+
+	private static Behavior<Message> onValidateRelationshipsMessage(ValidateRelationshipsMessage message) {
+		System.out.println("Validating Relationship: " + message.relation);
+		// Example: Validate column relationships (logic to be added)
+		return Behaviors.same();
 	}
 
 	private Guardian(ActorContext<Message> context, TimerScheduler<Message> timer) {
@@ -161,9 +177,8 @@ public class Guardian extends AbstractBehavior<Guardian.Message> {
 		return this;
 	}
 	private static Behavior<Message> onProcessCsvMessage(ProcessCsvMessage message) {
-		System.out.println("Reading CSV File: " + message.filePath);
-		List<String[]> data = CsvReaderUtil.readCsv(message.filePath);
-		data.forEach(row -> System.out.println(String.join(", ", row)));
+		System.out.println("Processing CSV File: " + message.filePath);
+		CsvReaderUtil.readCsv(message.filePath); // Assume CsvReaderUtil logs rows
 		return Behaviors.same();
 	}
 }

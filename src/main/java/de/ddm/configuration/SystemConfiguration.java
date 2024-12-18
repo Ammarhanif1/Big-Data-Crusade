@@ -30,13 +30,37 @@ public class SystemConfiguration {
 
 	private boolean startPaused = false;               // Wait for some console input to start; useful, if we want to wait manually until all ActorSystems in the cluster are started (e.g. to avoid work stealing effects in performance evaluations)
 
-	private boolean hardMode = false;					// Solve the hard version of the task
+	private boolean hardMode = false;
+	// Solve the hard version of the task
+
+	public String getActorSystemName() {
+		return this.actorSystemName;
+	}
+
+	public String getRole() {
+		return this.role;
+	}
+
+	public boolean isStartPaused() {
+		return this.startPaused;
+	}
 
 	private static String getDefaultHost() {
 		try {
 			return InetAddress.getLocalHost().getHostAddress();
 		} catch (UnknownHostException e) {
 			return "localhost";
+		}
+	}
+
+	public class SystemConfigurationSingleton {
+		private static SystemConfiguration instance;
+
+		public static SystemConfiguration get() {
+			if (instance == null) {
+				instance = new SystemConfiguration(); // Ensure proper initialization
+			}
+			return instance;
 		}
 	}
 
