@@ -20,6 +20,8 @@
 		<fastutil.version>8.5.13</fastutil.version>
 		<opencsv.version>5.9</opencsv.version>
 		<jol.version>0.17</jol.version>
+		<maven.compiler.source>16</maven.compiler.source>
+    		<maven.compiler.target>16</maven.compiler.target>
 	</properties>
 
 	<repositories>

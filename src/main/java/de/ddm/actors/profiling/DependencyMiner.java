@@ -19,11 +19,13 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
+import java.io.FileReader;
+import java.util.*;
+
+import static de.ddm.utils.ResultsParser.parseResultsFile;
 
 public class DependencyMiner extends AbstractBehavior<DependencyMiner.Message> {
 
@@ -32,6 +34,90 @@ public class DependencyMiner extends AbstractBehavior<DependencyMiner.Message> {
 	////////////////////
 
 	public interface Message extends AkkaSerializable, LargeMessageProxy.LargeMessage {
+	}
+	public static class StartMiningMessage implements Message {}
+
+
+
+	private static Map<String, String[]> parseResultsFile(String filePath) throws Exception {
+		Map<String, String[]> relationships = new LinkedHashMap<>();
+		try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+			String line;
+			while ((line = reader.readLine()) != null) {
+				if (line.contains("->")) {
+					String[] parts = line.split("->|:");
+					relationships.put(parts[0].trim() + " -> " + parts[1].trim(), new String[]{
+							parts[0].trim(),
+							parts[2].replace("[", "").replace("]", "").trim(),
+							parts[1].trim(),
+							parts[3].replace("[", "").replace("]", "").trim()
+					});
+				}
+			}
+		}
+		return relationships;
+	}
+
+	private static List<String> readColumn(String filePath, String columnName) throws Exception {
+		List<String> values = new ArrayList<>();
+		try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+			String[] headers = reader.readLine().split(",");
+			int columnIndex = Arrays.asList(headers).indexOf(columnName);
+
+			String line;
+			while ((line = reader.readLine()) != null) {
+				values.add(line.split(",")[columnIndex]);
+			}
+		}
+		return values;
+	}
+	public static class DistributeColumnsMessage implements Message {
+		public final List<List<String>> dependentColumns;
+		public final List<List<String>> referencedColumns;
+
+		public DistributeColumnsMessage(List<List<String>> dependentColumns, List<List<String>> referencedColumns) {
+			this.dependentColumns = dependentColumns;
+			this.referencedColumns = referencedColumns;
+		}
+	}
+
+
+
+	public static Behavior<Message> create() {
+		return Behaviors.setup(context -> {
+			List<akka.actor.typed.ActorRef<DependencyWorker.Message>> workers = new ArrayList<>();
+			for (int i = 0; i < 4; i++) {
+				workers.add(context.spawn(DependencyWorker.create(), "worker-" + i));
+			}
+
+			return Behaviors.receive(Message.class)
+					.onMessage(StartMiningMessage.class, message -> {
+						Map<String, String[]> relationships = parseResultsFile("src/main/resources/data/results.txt");
+
+						// Distribute tasks to workers
+						relationships.forEach((relation, columns) -> {
+                            List<String> dependentColumn = null;
+                            try {
+                                dependentColumn = readColumn("src/main/resources/data/" + columns[0] + ".csv", columns[1]);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                            List<String> referencedColumn = null;
+                            try {
+                                referencedColumn = readColumn("src/main/resources/data/" + columns[2] + ".csv", columns[3]);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+
+                            workers.get(relation.hashCode() % workers.size()).tell(
+									new DependencyWorker.CheckIndMessage(dependentColumn, referencedColumn)
+							);
+						});
+
+						return Behaviors.same();
+					})
+					.build();
+		});
 	}
 
 	@NoArgsConstructor
@@ -47,6 +133,14 @@ public class DependencyMiner extends AbstractBehavior<DependencyMiner.Message> {
 		int id;
 		String[] header;
 	}
+	public static class ProcessColumnsMessage implements Message {
+		private final String[][] tableData;
+
+        public ProcessColumnsMessage(String[][] tableData) {
+            this.tableData = tableData;
+        }
+    }
+
 
 	@Getter
 	@NoArgsConstructor
@@ -82,9 +176,7 @@ public class DependencyMiner extends AbstractBehavior<DependencyMiner.Message> {
 
 	public static final ServiceKey<DependencyMiner.Message> dependencyMinerService = ServiceKey.create(DependencyMiner.Message.class, DEFAULT_NAME + "Service");
 
-	public static Behavior<Message> create() {
-		return Behaviors.setup(DependencyMiner::new);
-	}
+
 
 	private DependencyMiner(ActorContext<Message> context) {
 		super(context);

@@ -13,6 +13,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
 import java.util.Random;
 import java.util.Set;
 
@@ -23,6 +24,29 @@ public class DependencyWorker extends AbstractBehavior<DependencyWorker.Message>
 	////////////////////
 
 	public interface Message extends AkkaSerializable {
+	}
+	public static class CheckIndMessage implements Message {
+		public final List<String> dependentColumn;
+		public final List<String> referencedColumn;
+
+		public CheckIndMessage(List<String> dependentColumn, List<String> referencedColumn) {
+			this.dependentColumn = dependentColumn;
+			this.referencedColumn = referencedColumn;
+		}
+	}
+
+	public static Behavior<Message> create() {
+		return Behaviors.receive(Message.class)
+				.onMessage(CheckIndMessage.class, DependencyWorker::onCheckIndMessage)
+				.build();
+	}
+
+	private static Behavior<Message> onCheckIndMessage(CheckIndMessage message) {
+		boolean isSubset = message.dependentColumn.stream()
+				.allMatch(message.referencedColumn::contains);
+
+		System.out.println("Result for IND: " + isSubset);
+		return Behaviors.same();
 	}
 
 	@Getter
@@ -41,6 +65,17 @@ public class DependencyWorker extends AbstractBehavior<DependencyWorker.Message>
 		ActorRef<LargeMessageProxy.Message> dependencyMinerLargeMessageProxy;
 		int task;
 	}
+	public static class CheckUnaryIndMessage implements Message {
+		private final String[] dependentColumn;
+		private final String[] referencedColumn;
+
+        public CheckUnaryIndMessage(String[] dependentColumn, String[] referencedColumn) {
+            this.dependentColumn = dependentColumn;
+            this.referencedColumn = referencedColumn;
+        }
+    }
+
+
 
 	////////////////////////
 	// Actor Construction //
@@ -48,9 +83,7 @@ public class DependencyWorker extends AbstractBehavior<DependencyWorker.Message>
 
 	public static final String DEFAULT_NAME = "dependencyWorker";
 
-	public static Behavior<Message> create() {
-		return Behaviors.setup(DependencyWorker::new);
-	}
+
 
 	private DependencyWorker(ActorContext<Message> context) {
 		super(context);
@@ -85,7 +118,11 @@ public class DependencyWorker extends AbstractBehavior<DependencyWorker.Message>
 			dependencyMiner.tell(new DependencyMiner.RegistrationMessage(this.getContext().getSelf()));
 		return this;
 	}
-
+	private Behavior<Message> onCheckUnaryIndMessage(CheckUnaryIndMessage message) {
+		// Logic to check INDs between dependent and referenced columns
+		System.out.println("Processing IND check for columns");
+		return this;
+	}
 	private Behavior<Message> handle(TaskMessage message) {
 		this.getContext().getLog().info("Working!");
 		// I should probably know how to solve this task, but for now I just pretend some work...
