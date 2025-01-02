@@ -10,14 +10,12 @@ import de.ddm.actors.patterns.Reaper;
 import de.ddm.configuration.SystemConfiguration;
 import de.ddm.serialization.AkkaSerializable;
 import de.ddm.singletons.SystemConfigurationSingleton;
-import de.ddm.utils.CsvReaderUtil;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.Duration;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 public class Guardian extends AbstractBehavior<Guardian.Message> {
@@ -27,13 +25,6 @@ public class Guardian extends AbstractBehavior<Guardian.Message> {
 	////////////////////
 
 	public interface Message extends AkkaSerializable {
-	}
-	public static class ProcessCsvMessage implements Message {
-		public final String filePath;
-
-		public ProcessCsvMessage(String filePath) {
-			this.filePath = filePath;
-		}
 	}
 
 	@NoArgsConstructor
@@ -62,29 +53,12 @@ public class Guardian extends AbstractBehavior<Guardian.Message> {
 	////////////////////////
 
 	public static final String DEFAULT_NAME = "userGuardian";
-	public static class ValidateRelationshipsMessage implements Message {
-		public final String relation;
-		public final String[] columns;
 
-		public ValidateRelationshipsMessage(String relation, String[] columns) {
-			this.relation = relation;
-			this.columns = columns;
-		}
-	}
 	public static final ServiceKey<Guardian.Message> guardianService = ServiceKey.create(Guardian.Message.class, DEFAULT_NAME + "Service");
 
 	public static Behavior<Message> create() {
-		return Behaviors.receive(Message.class)
-				.onMessage(ProcessCsvMessage.class, Guardian::onProcessCsvMessage)
-				.onMessage(ValidateRelationshipsMessage.class, Guardian::onValidateRelationshipsMessage)
-				.build();
-	}
-
-
-	private static Behavior<Message> onValidateRelationshipsMessage(ValidateRelationshipsMessage message) {
-		System.out.println("Validating Relationship: " + message.relation);
-		// Example: Validate column relationships (logic to be added)
-		return Behaviors.same();
+		return Behaviors.setup(
+				context -> Behaviors.withTimers(timers -> new Guardian(context, timers)));
 	}
 
 	private Guardian(ActorContext<Message> context, TimerScheduler<Message> timer) {
@@ -175,10 +149,5 @@ public class Guardian extends AbstractBehavior<Guardian.Message> {
 			this.shutdown();
 
 		return this;
-	}
-	private static Behavior<Message> onProcessCsvMessage(ProcessCsvMessage message) {
-		System.out.println("Processing CSV File: " + message.filePath);
-		CsvReaderUtil.readCsv(message.filePath); // Assume CsvReaderUtil logs rows
-		return Behaviors.same();
 	}
 }
